@@ -2,6 +2,7 @@ import React from 'react';
 import { Animated, Pressable, RefreshControl, StatusBar, StyleSheet, Text, TouchableHighlight, View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import Swipeable, { SwipeableMethods } from 'react-native-gesture-handler/ReanimatedSwipeable';
+import Reanimated, { SharedValue, interpolate, useAnimatedStyle } from 'react-native-reanimated';
 
 const RNGH_VERSION: string = require('react-native-gesture-handler/package.json').version;
 
@@ -10,31 +11,59 @@ const COLLAPSING_HEADER_HEIGHT = 120;
 const ROW_COUNT = 1000;
 const INITIAL_DATA = Array.from({ length: ROW_COUNT }, (_, i) => ({ id: String(i) }));
 
+const ACTION_WIDTH = 64;
+
+type ActionProps = {
+  label: string;
+  color: string;
+  index: number;
+  count: number;
+  progress: SharedValue<number>;
+  onPress: () => void;
+};
+
+function Action({ label, color, index, count, progress, onPress }: ActionProps) {
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [{ translateX: interpolate(progress.value, [0, 1], [ACTION_WIDTH * (count - index), 0]) }],
+  }));
+  return (
+    <Reanimated.View style={[styles.action, { backgroundColor: color }, animatedStyle]}>
+      <Pressable style={styles.actionPressable} onPress={onPress}>
+        <Text style={styles.actionText}>{label}</Text>
+      </Pressable>
+    </Reanimated.View>
+  );
+}
+
 type RightActionsProps = {
   pinned: boolean;
   onPin: () => void;
   onDelete: () => void;
+  progress: SharedValue<number>;
   methods: SwipeableMethods;
 };
 
-function RightActions({ pinned, onPin, onDelete, methods }: RightActionsProps) {
+function RightActions({ pinned, onPin, onDelete, progress, methods }: RightActionsProps) {
   return (
     <View style={styles.actions}>
-      <Pressable
-        style={[styles.action, styles.actionPin]}
+      <Action
+        label={pinned ? 'Unpin' : 'Pin'}
+        color={PRIMARY}
+        index={0}
+        count={3}
+        progress={progress}
         onPress={() => {
           onPin();
           methods.close();
-        }}>
-        <Text style={styles.actionText}>{pinned ? 'Unpin' : 'Pin'}</Text>
-      </Pressable>
-      <Pressable style={[styles.action, styles.actionDelete]} onPress={onDelete}>
-        <Text style={styles.actionText}>Delete</Text>
-      </Pressable>
+        }}
+      />
+      <Action label="Archive" color="#00897b" index={1} count={3} progress={progress} onPress={onDelete} />
+      <Action label="Delete" color="#d32f2f" index={2} count={3} progress={progress} onPress={onDelete} />
     </View>
   );
 }
 
+const ACCESSIBILITY_ACTIONS = [{ name: 'escape' }];
 const TAGS = ['alpha', 'beta', 'gamma', 'delta'];
 const COLORS = ['#e57373', '#64b5f6', '#81c784', '#ffb74d', '#ba68c8'];
 
@@ -48,14 +77,28 @@ type RowProps = {
 
 const Row = React.memo(function SwipeableRow({ id, pinned, onPress, onPin, onDelete }: RowProps) {
   const n = Number(id);
+  const swipeableRef = React.useRef<SwipeableMethods>(null);
+  const onAccessibilityAction = React.useCallback(() => swipeableRef.current?.close(), []);
   const renderRightActions = React.useCallback(
-    (_progress: unknown, _translation: unknown, methods: SwipeableMethods) => (
-      <RightActions pinned={pinned} onPin={() => onPin(id)} onDelete={() => onDelete(id)} methods={methods} />
+    (progress: SharedValue<number>, _translation: SharedValue<number>, methods: SwipeableMethods) => (
+      <RightActions
+        pinned={pinned}
+        onPin={() => onPin(id)}
+        onDelete={() => onDelete(id)}
+        progress={progress}
+        methods={methods}
+      />
     ),
     [id, pinned, onPin, onDelete],
   );
   return (
-    <Swipeable renderRightActions={renderRightActions} friction={2} rightThreshold={40} overshootRight={false}>
+    <View accessibilityActions={ACCESSIBILITY_ACTIONS} onAccessibilityAction={onAccessibilityAction}>
+      <Swipeable
+        ref={swipeableRef}
+        renderRightActions={renderRightActions}
+        friction={2}
+        rightThreshold={40}
+        overshootRight={false}>
       <TouchableHighlight underlayColor="#eee" onPress={() => onPress(id)} testID={`row-${id}`}>
         <View style={[styles.row, pinned && styles.rowPinned]}>
           <View style={[styles.avatar, { backgroundColor: COLORS[n % COLORS.length] }]}>
@@ -96,7 +139,8 @@ const Row = React.memo(function SwipeableRow({ id, pinned, onPress, onPin, onDel
           </View>
         </View>
       </TouchableHighlight>
-    </Swipeable>
+      </Swipeable>
+    </View>
   );
 });
 
@@ -260,9 +304,8 @@ const styles = StyleSheet.create({
   collapsingTitle: { fontSize: 20, fontWeight: '700', color: PRIMARY },
   collapsingSubtitle: { marginTop: 4, fontSize: 13, color: '#555' },
   separator: { height: StyleSheet.hairlineWidth, backgroundColor: '#d9d9e3' },
-  actions: { width: 160, flexDirection: 'row' },
-  action: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  actionDelete: { backgroundColor: '#d32f2f' },
-  actionPin: { backgroundColor: PRIMARY },
+  actions: { width: ACTION_WIDTH * 3, flexDirection: 'row' },
+  action: { width: ACTION_WIDTH },
+  actionPressable: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   actionText: { color: 'white', fontWeight: '600' },
 });
