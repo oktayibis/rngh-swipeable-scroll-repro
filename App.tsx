@@ -1,11 +1,12 @@
 import React from 'react';
-import { FlatList, Pressable, RefreshControl, StatusBar, StyleSheet, Text, TouchableHighlight, View } from 'react-native';
+import { Animated, Pressable, RefreshControl, StatusBar, StyleSheet, Text, TouchableHighlight, View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import Swipeable, { SwipeableMethods } from 'react-native-gesture-handler/ReanimatedSwipeable';
 
 const RNGH_VERSION: string = require('react-native-gesture-handler/package.json').version;
 
 const PRIMARY = '#3f3d9e';
+const COLLAPSING_HEADER_HEIGHT = 120;
 const ROW_COUNT = 1000;
 const INITIAL_DATA = Array.from({ length: ROW_COUNT }, (_, i) => ({ id: String(i) }));
 
@@ -128,6 +129,22 @@ export default function App() {
     setTimeout(() => setRefreshing(false), 1000);
   }, []);
 
+  const scrollY = React.useRef(new Animated.Value(0)).current;
+  const onScroll = React.useMemo(
+    () => Animated.event([{ nativeEvent: { contentOffset: { y: scrollY } } }], { useNativeDriver: true }),
+    [scrollY],
+  );
+  const headerTranslateY = scrollY.interpolate({
+    inputRange: [0, COLLAPSING_HEADER_HEIGHT],
+    outputRange: [0, -COLLAPSING_HEADER_HEIGHT],
+    extrapolate: 'clamp',
+  });
+  const headerOpacity = scrollY.interpolate({
+    inputRange: [0, COLLAPSING_HEADER_HEIGHT * 0.7],
+    outputRange: [1, 0],
+    extrapolate: 'clamp',
+  });
+
   const onPress = React.useCallback((id: string) => {
     setTaps(count => count + 1);
     setLastTapped(id);
@@ -152,15 +169,32 @@ export default function App() {
           {lastTapped !== null ? ` (last: row ${lastTapped})` : ''}
         </Text>
       </View>
-      <FlatList
-        data={data}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
-        keyExtractor={item => item.id}
-        renderItem={({ item }) => (
-          <Row id={item.id} pinned={pinnedIds.has(item.id)} onPress={onPress} onPin={onPin} onDelete={onDelete} />
-        )}
-        ItemSeparatorComponent={Separator}
-      />
+      <View style={styles.listContainer}>
+        <Animated.FlatList
+          data={data}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              progressViewOffset={COLLAPSING_HEADER_HEIGHT}
+            />
+          }
+          onScroll={onScroll}
+          scrollEventThrottle={16}
+          contentContainerStyle={styles.listContent}
+          keyExtractor={item => item.id}
+          renderItem={({ item }) => (
+            <Row id={item.id} pinned={pinnedIds.has(item.id)} onPress={onPress} onPin={onPin} onDelete={onDelete} />
+          )}
+          ItemSeparatorComponent={Separator}
+        />
+        <Animated.View
+          pointerEvents="none"
+          style={[styles.collapsingHeader, { opacity: headerOpacity, transform: [{ translateY: headerTranslateY }] }]}>
+          <Text style={styles.collapsingTitle}>Collapsing header</Text>
+          <Text style={styles.collapsingSubtitle}>Fades and slides away as you scroll</Text>
+        </Animated.View>
+      </View>
     </GestureHandlerRootView>
   );
 }
@@ -211,6 +245,20 @@ const styles = StyleSheet.create({
   iconDot: { width: 4, height: 4, borderRadius: 2, backgroundColor: '#666', marginVertical: 1 },
   rowTitle: { fontSize: 16, flexShrink: 1 },
   rowSubtitle: { marginTop: 2, fontSize: 12, color: '#666' },
+  listContainer: { flex: 1 },
+  listContent: { paddingTop: COLLAPSING_HEADER_HEIGHT },
+  collapsingHeader: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: COLLAPSING_HEADER_HEIGHT,
+    justifyContent: 'center',
+    paddingHorizontal: 16,
+    backgroundColor: '#e8e7fb',
+  },
+  collapsingTitle: { fontSize: 20, fontWeight: '700', color: PRIMARY },
+  collapsingSubtitle: { marginTop: 4, fontSize: 13, color: '#555' },
   separator: { height: StyleSheet.hairlineWidth, backgroundColor: '#d9d9e3' },
   actions: { width: 160, flexDirection: 'row' },
   action: { flex: 1, alignItems: 'center', justifyContent: 'center' },
