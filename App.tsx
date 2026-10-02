@@ -1,5 +1,5 @@
 import React from 'react';
-import { FlatList, Pressable, StatusBar, StyleSheet, Text, TouchableHighlight, View } from 'react-native';
+import { FlatList, Pressable, RefreshControl, StatusBar, StyleSheet, Text, TouchableHighlight, View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import Swipeable, { SwipeableMethods } from 'react-native-gesture-handler/ReanimatedSwipeable';
 
@@ -122,6 +122,12 @@ export default function App() {
     setData(prev => prev.filter(item => item.id !== id));
   }, []);
 
+  const [refreshing, setRefreshing] = React.useState(false);
+  const onRefresh = React.useCallback(() => {
+    setRefreshing(true);
+    setTimeout(() => setRefreshing(false), 1000);
+  }, []);
+
   const onPress = React.useCallback((id: string) => {
     setTaps(count => count + 1);
     setLastTapped(id);
@@ -148,6 +154,7 @@ export default function App() {
       </View>
       <FlatList
         data={data}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
         keyExtractor={item => item.id}
         renderItem={({ item }) => (
           <Row id={item.id} pinned={pinnedIds.has(item.id)} onPress={onPress} onPin={onPin} onDelete={onDelete} />
