@@ -2,6 +2,9 @@ import React from 'react';
 import { Animated, Dimensions, Pressable, RefreshControl, StatusBar, StyleSheet, Text, TouchableHighlight, View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import Swipeable, { SwipeableMethods } from 'react-native-gesture-handler/ReanimatedSwipeable';
+import { NavigationContainer } from '@react-navigation/native';
+import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import { createStackNavigator } from '@react-navigation/stack';
 import { SceneMap, SceneRendererProps, NavigationState, Route, TabBar, TabView } from 'react-native-tab-view';
 import Reanimated, { SharedValue, interpolate, useAnimatedStyle } from 'react-native-reanimated';
 
@@ -278,18 +281,47 @@ function renderTabBar(props: SceneRendererProps & { navigationState: NavigationS
   );
 }
 
-export default function App() {
+function PagerScreen() {
   const [index, setIndex] = React.useState(0);
   return (
+    <TabView
+      navigationState={{ index, routes: ROUTES }}
+      renderScene={renderScene}
+      renderTabBar={renderTabBar}
+      tabBarPosition="bottom"
+      onIndexChange={setIndex}
+      initialLayout={INITIAL_LAYOUT}
+    />
+  );
+}
+
+const Stack = createStackNavigator();
+const Tabs = createBottomTabNavigator();
+
+const STACK_OPTIONS = { headerShown: false };
+const TAB_OPTIONS = { headerShown: false, tabBarActiveTintColor: PRIMARY };
+
+function HomeStack() {
+  return (
+    <Stack.Navigator screenOptions={STACK_OPTIONS}>
+      <Stack.Screen name="Pager" component={PagerScreen} />
+    </Stack.Navigator>
+  );
+}
+
+function SettingsScreen() {
+  return <PlaceholderTab title="Settings" />;
+}
+
+export default function App() {
+  return (
     <GestureHandlerRootView style={styles.root}>
-      <TabView
-        navigationState={{ index, routes: ROUTES }}
-        renderScene={renderScene}
-        renderTabBar={renderTabBar}
-        tabBarPosition="bottom"
-        onIndexChange={setIndex}
-        initialLayout={INITIAL_LAYOUT}
-      />
+      <NavigationContainer>
+        <Tabs.Navigator screenOptions={TAB_OPTIONS}>
+          <Tabs.Screen name="Home" component={HomeStack} />
+          <Tabs.Screen name="Settings" component={SettingsScreen} />
+        </Tabs.Navigator>
+      </NavigationContainer>
     </GestureHandlerRootView>
   );
 }
