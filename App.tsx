@@ -1,7 +1,8 @@
 import React from 'react';
-import { Animated, Pressable, RefreshControl, StatusBar, StyleSheet, Text, TouchableHighlight, View } from 'react-native';
+import { Animated, Dimensions, Pressable, RefreshControl, StatusBar, StyleSheet, Text, TouchableHighlight, View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import Swipeable, { SwipeableMethods } from 'react-native-gesture-handler/ReanimatedSwipeable';
+import { SceneMap, SceneRendererProps, NavigationState, Route, TabBar, TabView } from 'react-native-tab-view';
 import Reanimated, { SharedValue, interpolate, useAnimatedStyle } from 'react-native-reanimated';
 
 const RNGH_VERSION: string = require('react-native-gesture-handler/package.json').version;
@@ -144,7 +145,7 @@ const Row = React.memo(function SwipeableRow({ id, pinned, onPress, onPin, onDel
   );
 });
 
-export default function App() {
+function ListScreen() {
   const [taps, setTaps] = React.useState(0);
   const [lastTapped, setLastTapped] = React.useState<string | null>(null);
 
@@ -195,7 +196,7 @@ export default function App() {
   }, []);
 
   return (
-    <GestureHandlerRootView style={styles.root}>
+    <View style={styles.root}>
       <StatusBar barStyle="light-content" backgroundColor={PRIMARY} />
       <View style={styles.topBar}>
         <View style={styles.topBarRow}>
@@ -239,6 +240,56 @@ export default function App() {
           <Text style={styles.collapsingSubtitle}>Fades and slides away as you scroll</Text>
         </Animated.View>
       </View>
+    </View>
+  );
+}
+
+function PlaceholderTab({ title }: { title: string }) {
+  return (
+    <View style={styles.placeholder}>
+      <Text style={styles.placeholderText}>{title}</Text>
+    </View>
+  );
+}
+
+const ROUTES = [
+  { key: 'list', title: 'List' },
+  { key: 'second', title: 'Second' },
+  { key: 'third', title: 'Third' },
+];
+
+const renderScene = SceneMap({
+  list: ListScreen,
+  second: () => <PlaceholderTab title="Second tab" />,
+  third: () => <PlaceholderTab title="Third tab" />,
+});
+
+const INITIAL_LAYOUT = { width: Dimensions.get('window').width };
+
+function renderTabBar(props: SceneRendererProps & { navigationState: NavigationState<Route> }) {
+  return (
+    <TabBar
+      {...props}
+      style={styles.tabBar}
+      indicatorStyle={styles.tabIndicator}
+      activeColor={PRIMARY}
+      inactiveColor="#777"
+    />
+  );
+}
+
+export default function App() {
+  const [index, setIndex] = React.useState(0);
+  return (
+    <GestureHandlerRootView style={styles.root}>
+      <TabView
+        navigationState={{ index, routes: ROUTES }}
+        renderScene={renderScene}
+        renderTabBar={renderTabBar}
+        tabBarPosition="bottom"
+        onIndexChange={setIndex}
+        initialLayout={INITIAL_LAYOUT}
+      />
     </GestureHandlerRootView>
   );
 }
@@ -303,6 +354,10 @@ const styles = StyleSheet.create({
   },
   collapsingTitle: { fontSize: 20, fontWeight: '700', color: PRIMARY },
   collapsingSubtitle: { marginTop: 4, fontSize: 13, color: '#555' },
+  placeholder: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#f5f5fa' },
+  placeholderText: { fontSize: 18, color: '#555' },
+  tabBar: { backgroundColor: 'white' },
+  tabIndicator: { backgroundColor: PRIMARY },
   separator: { height: StyleSheet.hairlineWidth, backgroundColor: '#d9d9e3' },
   actions: { width: ACTION_WIDTH * 3, flexDirection: 'row' },
   action: { width: ACTION_WIDTH },
